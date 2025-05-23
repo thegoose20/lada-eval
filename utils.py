@@ -1,9 +1,11 @@
 import os, re
 
 """
-Write XML records to a directory.
+Write XML records to a directory as files in the format specified by `file_suffix`
+(the XML may be malformed, in which case corrections will need to be made by
+reading the data from a TXT and then re-writing it as XML).
 """
-def write_xml(records_ids_list, records_list, dir, file_prefix):
+def write_xml(records_ids_list, records_list, dir, file_prefix, file_suffix):
     i, maxI = 0, len(records_ids_list)
     while i < maxI:
         id = str(int(records_ids_list[i]))
@@ -20,7 +22,7 @@ def write_xml(records_ids_list, records_list, dir, file_prefix):
         to an XML file
         """
         if len(xml_data) > 0:
-            file_suffix = ".xml"
+            # file_suffix = ".xml"
             if len(id) == 1:
                 file_id = "00" + id
             elif len(id) == 2:
@@ -40,9 +42,11 @@ def write_xml(records_ids_list, records_list, dir, file_prefix):
         i += 1
 
 """
-Write JSON records to a directory.
+Write JSON records to a directory as files in the format specified by `file_suffix`
+(the JSON may be malformed, in which case corrections will need to be made by
+reading the data from a TXT and then re-writing it as JSON).
 """
-def write_json(records_ids_list, records_list, dir, file_prefix):
+def write_json(records_ids_list, records_list, dir, file_prefix, file_suffix):
     i, maxI = 0, len(records_ids_list)
     while i < maxI:
         id = str(int(records_ids_list[i]))
@@ -59,7 +63,7 @@ def write_json(records_ids_list, records_list, dir, file_prefix):
         to a JSON file
         """
         if len(json_data) > 0:
-            file_suffix = ".json"
+            # file_suffix = ".json"
             if len(id) == 1:
                 file_id = "00" + id
             elif len(id) == 2:
