@@ -1,4 +1,5 @@
 import os, re
+import xml.etree.ElementTree as ET
 
 """
 Write XML records to a directory as files in the format specified by `file_suffix`
@@ -81,3 +82,56 @@ def write_json(records_ids_list, records_list, dir, file_prefix, file_suffix):
             print("Wrote", filename+"!")
 
         i += 1
+
+
+'''
+Correct malformed Dublin Core XML by reading TXT versions of the files as strings
+and re-writing the corrected versions as XML files.  To exclude an XLM prolog (declaring 
+the document type and specifying UTF-8 encoding), set prolog to False.
+'''
+prolog = '<?xml version="1.0" encoding="UTF-8"?>'
+dc_prefix_open_tag = '<metadata xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+dc_prefix_close_tag = '</metadata>'
+
+def correctDCXML(txt_errored_files, error_list, prolog=prolog, dc_prefix_open_tag=dc_prefix_open_tag, dc_prefix_close_tag=dc_prefix_close_tag):
+    i, maxI = 0, len(error_list)
+    still_incorrect = []
+    while i < maxI:
+        txt_file, message = txt_errored_files[i], error_list[i]
+        
+        if "Namespace prefix dc" in message:
+            with open(txt_file, "r") as f:
+                f_string = f.read()
+
+                # Look for different error patterns
+
+                open_tag = re.findall("<dublin.*core.*>", f_string)
+                if (len(open_tag) == 1):
+                    f_string = f_string.replace(open_tag[0],dc_prefix_open_tag)
+                close_tag = re.findall("</dublin.*core>", f_string)
+                if (len(close_tag) == 1):
+                    f_string = f_string.replace(close_tag[0], dc_prefix_close_tag)
+                
+                has_prefix_open_tag = re.findall(dc_prefix_open_tag, f_string)
+                if not has_prefix_open_tag:
+                    f_string = dc_prefix_open_tag + "\n" + f_string
+                has_prefix_close_tag = re.findall(dc_prefix_close_tag, f_string)
+                if not has_prefix_close_tag:
+                    f_string = f_string + "\n" + dc_prefix_close_tag
+
+                if prolog != False:
+                    has_prolog = re.findall("^\<\?xml version=.+ encoding=.+", f_string)
+                    if len(has_prolog) == 0:
+                        f_string = prolog + "\n" + f_string
+
+        # To validate that the new data is well-formed, try parsing it as XML
+        try:
+            root = ET.fromstring(f_string)
+            xml_file = txt_file.replace(".txt", ".xml")
+            with open(xml_file, "w") as f:
+                f.write(f_string)
+        except:
+            still_incorrect += [txt_file]
+
+        i += 1
+        return still_incorrect
