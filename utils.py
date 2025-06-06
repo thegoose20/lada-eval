@@ -1,4 +1,4 @@
-import os, re
+import os, re, json
 import xml.etree.ElementTree as ET
 
 """
@@ -125,13 +125,64 @@ def correctDCXML(txt_errored_files, error_list, prolog=prolog, dc_prefix_open_ta
                         f_string = prolog + "\n" + f_string
 
         # To validate that the new data is well-formed, try parsing it as XML
+        # and, if successful, write the corrected file to a new directory 
         try:
             root = ET.fromstring(f_string)
             xml_file = txt_file.replace(".txt", ".xml")
-            with open(xml_file, "w") as f:
+            corrected_file = xml_file.replace("cleaned", "corrected")
+            with open(corrected_file, "w") as f:
                 f.write(f_string)
         except:
             still_incorrect += [txt_file]
 
         i += 1
         return still_incorrect
+    
+
+def correctJSON(txt_errored_files):
+    still_incorrect = []
+    comments_found = []
+    new_syntax_errors = []
+    for errored_file in txt_errored_files:
+        with open(errored_file, "r") as f:
+            f_string = f.read()
+            # Check for and remove invalid comments in format: //, #, or /* */
+            comments = re.findall("\n\s*\/\/\s*\w.+|\n\s*\/\*\s*.+\s*\*\/|\n\s*#\s*.+", f_string)
+            if len(comments) > 0:
+                comments_found += [{"errored_file": errored_file, "comment": comments}]
+                for comment in comments:
+                    f_string = f_string.replace(comment, "")
+            
+            # Check for double quotes surrounding field names and values (""..."" rather than "...")
+            double_quotes = re.findall("""[@\w]+"":[\s\[\{]*"".+""", f_string)
+            if len(double_quotes) > 0:
+                f_string = f_string.replace('""', '"')
+            
+            # Check for missing curly brace at end of file
+            open_brace = re.findall("\{", f_string)
+            close_brace = re.findall("\}", f_string)
+            if len(open_brace) == (len(close_brace) + 1):
+                f_string = f_string + "\n}"
+            elif (len(open_brace) > (len(close_brace) + 1)) or len(open_brace) < len(close_brace):
+                errored_json = errored_file.replace(".txt", ".json")
+                print("Please review file", errored_json, "manually and make sure that all open curly braces ({) are paired with a closing curly brace (}) and vice versa.")
+                still_incorrect += [errored_file]
+                
+            # To validate that the JSON data has been corrected, write a new file
+            # with the corrected string in a 'corrected' directory and try to load
+            # the file as JSON data
+            json_path = errored_file.replace(".txt", ".json")
+            corrected_file = json_path.replace("cleaned", "corrected")
+            with open(corrected_file, "w") as f_json:
+                f_json.write(f_string)
+                try:
+                    data = json.load(f_json)
+                except Exception as e:
+                    f_error = {"file": json_path, "exception_type": type(e), "exception_message": str(e)}
+                    new_syntax_errors += [f_error]
+                    still_incorrect += [errored_file]
+
+    return still_incorrect, comments_found, new_syntax_errors
+
+
+        
