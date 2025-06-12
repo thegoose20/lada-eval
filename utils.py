@@ -1,27 +1,36 @@
 import os, re, json
 import xml.etree.ElementTree as ET
 
-"""
+
+dc_namespace = 'xmlns:dc="http://purl.org/dc/elements/1.1/"'
+dc_qual_namespace = 'xmlns:dcterms="http://purl.org/dc/terms/"'
+rdf_namespace = "http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+dc_prefix_open_tag_qual = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">'
+dc_prefix_open_tag_simple = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+dc_prefix_close_tag = '</rdf:RDF>'
+
+
+'''
 Write XML records to a directory as files in the format specified by `file_suffix`
 (the XML may be malformed, in which case corrections will need to be made by
 reading the data from a TXT and then re-writing it as XML).
-"""
+'''
 def write_xml(records_ids_list, records_list, dir, file_prefix, file_suffix):
     i, maxI = 0, len(records_ids_list)
     while i < maxI:
         id = str(int(records_ids_list[i]))
         record = records_list[i]
         
-        """
+        '''
         Remove extraneous text so only data between tags (< >) remains
-        """
+        '''
         xml_data = re.findall(r"<.+>", record)
 
-        """
+        '''
         If xml_data isn't an empty list, define the file name, 
         padding the ID with leading zeros, and write the data
         to an XML file
-        """
+        '''
         if len(xml_data) > 0:
             # file_suffix = ".xml"
             if len(id) == 1:
@@ -42,27 +51,28 @@ def write_xml(records_ids_list, records_list, dir, file_prefix, file_suffix):
 
         i += 1
 
-"""
+
+'''
 Write JSON records to a directory as files in the format specified by `file_suffix`
 (the JSON may be malformed, in which case corrections will need to be made by
 reading the data from a TXT and then re-writing it as JSON).
-"""
+'''
 def write_json(records_ids_list, records_list, dir, file_prefix, file_suffix):
     i, maxI = 0, len(records_ids_list)
     while i < maxI:
         id = str(int(records_ids_list[i]))
         record = records_list[i]
         
-        """
+        '''
         Remove extraneous text so only data between curly braces ({ }) remains
-        """
+        '''
         json_data = re.findall(r"\{[\W\w]*\}", record)
 
-        """
+        '''
         If json_data isn't an empty list, define the file name, 
         padding the ID with leading zeros, and write the data
         to a JSON file
-        """
+        '''
         if len(json_data) > 0:
             # file_suffix = ".json"
             if len(id) == 1:
@@ -84,59 +94,227 @@ def write_json(records_ids_list, records_list, dir, file_prefix, file_suffix):
         i += 1
 
 
+def hasDCNamespaces(f, dc_namespace=dc_namespace, dc_qual_namespace=dc_qual_namespace):
+    f = f.lower()
+    if "dcterms" in f:
+        if (dc_namespace in f) and (dc_qual_namespace in f):
+            return True
+        else:
+            return False
+    else:
+        if dc_namespace in f:
+            return True
+        else:
+            return False
+
+
+def hasRDFNamespace(f, rdf_namespace=rdf_namespace):
+    f = f.lower()
+    if rdf_namespace in f:
+        return True
+    else:
+        return False
+    
+
+def hasProlog(f):
+    f = f.lower()
+    if '<?xml version="1.0"' in f:
+        return True
+    else:
+        return False
+
+'''
+By default check for UTF-8 encoding, but allow for other encodings with the encoding parameter.
+'''
+def hasPrologWithEncoding(f, encoding="UTF-8"):
+    f = f.lower()
+    if '<?xml version="1.0" encoding="UTF-8"?>' in f:
+        return True
+    else:
+        return False
+
+
 '''
 Correct malformed Dublin Core XML by reading TXT versions of the files as strings
-and re-writing the corrected versions as XML files.  To exclude an XLM prolog (declaring 
-the document type and specifying UTF-8 encoding), set prolog to False.
+and re-writing the corrected versions as XML files.  By default, include an XML prolog.
 '''
-prolog = '<?xml version="1.0" encoding="UTF-8"?>'
-dc_prefix_open_tag = '<metadata xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dc="http://purl.org/dc/elements/1.1/">'
-dc_prefix_close_tag = '</metadata>'
-
-def correctDCXML(txt_errored_files, error_list, prolog=prolog, dc_prefix_open_tag=dc_prefix_open_tag, dc_prefix_close_tag=dc_prefix_close_tag):
+def correctXML(
+        txt_errored_files, error_list, 
+        dc_prefix_open_tag_simple=dc_prefix_open_tag_simple, dc_prefix_open_tag_qual=dc_prefix_open_tag_qual, dc_prefix_close_tag=dc_prefix_close_tag,
+        dc_namespace=dc_namespace, dc_qual_namespace=dc_qual_namespace, rdf_namespace=rdf_namespace
+               ):
     i, maxI = 0, len(error_list)
     still_incorrect = []
     while i < maxI:
         txt_file, message = txt_errored_files[i], error_list[i]
         
-        if "Namespace prefix dc" in message:
-            with open(txt_file, "r") as f:
-                f_string = f.read()
+        with open(txt_file, "r") as f:
+            f_string = f.read()
+            f_string = f_string.strip()  # Remove any leading and trailing whitespace
 
-                # Look for different error patterns
+            # Remove duplicated quotes surrounding text (not empty strings)
+            dup_quotes = re.findall(".+", f_string)
+            for dup_quote in dup_quotes:
+                dedup = dup_quote.replace('""', '"')
+                f_string = f_string.replace(dup_quote, dedup)
+            
+                if "Namespace prefix dc" in message:
+                    # If dcterms tags are used, the record is a qualified DC record and
+                    # should include the DC terms namespace
+                    if "<dcterms:" in f_string:
+                        dc_prefix_open_tag = dc_prefix_open_tag_qual
+                    # Otherwise, the record is a simple DC record and should only include
+                    # the namespace for the 15 core fields
+                    else:
+                        dc_prefix_open_tag = dc_prefix_open_tag_simple
 
-                open_tag = re.findall("<dublin.*core.*>", f_string)
-                if (len(open_tag) == 1):
-                    f_string = f_string.replace(open_tag[0],dc_prefix_open_tag)
-                close_tag = re.findall("</dublin.*core>", f_string)
-                if (len(close_tag) == 1):
-                    f_string = f_string.replace(close_tag[0], dc_prefix_close_tag)
-                
-                has_prefix_open_tag = re.findall(dc_prefix_open_tag, f_string)
-                if not has_prefix_open_tag:
-                    f_string = dc_prefix_open_tag + "\n" + f_string
-                has_prefix_close_tag = re.findall(dc_prefix_close_tag, f_string)
-                if not has_prefix_close_tag:
-                    f_string = f_string + "\n" + dc_prefix_close_tag
+                    # Find the name of the first open and last closing tags and, if they are a pair,
+                    # replace them with tags that include the RDF and DC namespaces
+                    last_close_tag = re.findall("<\/[a-z]+>$", f_string)
+                    if len(last_close_tag) > 0:
+                        first_open_tag_pattern = "<" + last_close_tag[0][2:-1] + "[^<]*>"
+                        first_open_tag = re.findall(first_open_tag_pattern, f_string)
+                        if len(first_open_tag) > 0:
+                            # If the tags are a pair and they are not for a metadata field, replace them with the
+                            # DC prefix tags defining the relevant namespace(s)
+                            if not ("dc" in first_open_tag[0]):
+                                f_string = f_string.replace(first_open_tag[0], dc_prefix_open_tag)
+                                f_string = f_string.replace(last_close_tag[0], dc_prefix_close_tag)
+                            else:
+                                # If there is no pair of outermost tags surrounding all the metadata felds, add them,
+                                # being sure to place them after the XML prolog if it exists
+                                has_prolog = re.findall('<\?xml version="1.0"[^<]*>', f_string)
+                                if len(has_prolog) > 0:
+                                    f_string = f_string.replace(has_prolog[0], (has_prolog[0] + "\n" + dc_prefix_open_tag))
+                                else:
+                                    f_string = dc_prefix_open_tag + "\n" + f_string
+                                f_string = f_string + "\n" + dc_prefix_close_tag
+                                
 
-                if prolog != False:
-                    has_prolog = re.findall("^\<\?xml version=.+ encoding=.+", f_string)
-                    if len(has_prolog) == 0:
-                        f_string = prolog + "\n" + f_string
+                        # If the last closing tag doesn't have a matching opening tag, add the matching opening
+                        # tag if there isn't already one that includes the DC and RDF namespaces, and replace
+                        # the last closing tag if it is different from the expected DC closing tag
+                        else:
+                            f_string = dc_prefix_open_tag + "\n" + f_string
+                            if last_close_tag[0] != dc_prefix_close_tag:
+                                f_string = f_string.replace(last_close_tag[0], dc_prefix_close_tag)
 
-        # To validate that the new data is well-formed, try parsing it as XML
-        # and, if successful, write the corrected file to a new directory 
-        try:
-            root = ET.fromstring(f_string)
-            xml_file = txt_file.replace(".txt", ".xml")
-            corrected_file = xml_file.replace("cleaned", "corrected")
-            with open(corrected_file, "w") as f:
-                f.write(f_string)
-        except:
-            still_incorrect += [txt_file]
+
+                if "Namespace prefix rdf for about on Description" in message:
+                    # If the RDF description tag is malformed, replace it with a well-formed one
+                    rdf_desc_open_tag = re.findall('<rdf:Description rdf:about=.+>', f_string)
+                    if len(rdf_desc_open_tag) > 0:
+                        f_string = f_string.replace(rdf_desc_open_tag[0], '<rdf:Description rdf:about="http://www.w3.org/TR/rdf-syntax-grammar">')
+                    
+            f.close()
+
+            # To validate that the new data is well-formed, try parsing it as XML
+            # and, if successful, write the corrected file to a new directory 
+            try:
+                f_string = f_string.strip()  # Remove any leading and trailing whitespace
+                root = ET.fromstring(f_string)
+                xml_file = txt_file.replace(".txt", ".xml")
+                corrected_file = xml_file.replace("cleaned", "corrected")
+                with open(corrected_file, "w") as f:
+                    f.write(f_string)
+                    f.close()
+            except Exception as e:
+                new_error = {"file": txt_file, "exception_type": type(e), "exception_message": str(e)}
+                still_incorrect += [new_error]
 
         i += 1
-        return still_incorrect
+
+    return still_incorrect
+
+
+# dc_prefix_open_tag_qual = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">'
+# dc_prefix_open_tag_simple = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+# dc_prefix_close_tag = '</rdf:RDF>'
+
+# def correctDCXML(txt_errored_files, error_list, include_prolog=True, prolog=prolog, dc_prefix_open_tag_simple=dc_prefix_open_tag_simple, dc_prefix_open_tag_qual=dc_prefix_open_tag_qual, dc_prefix_close_tag=dc_prefix_close_tag):
+#     i, maxI = 0, len(error_list)
+#     still_incorrect_list = []
+#     while i < maxI:
+#         txt_file, message = txt_errored_files[i], error_list[i]
+#         with open(txt_file, "r") as f:
+#             f_string = f.read()
+#             f_string = f_string.strip()  # Remove any leading and trailing whitespace
+
+#             # Remove duplicated quotes surrounding text (not empty strings)
+#             dup_quotes = re.findall(".+", f_string)
+#             for dup_quote in dup_quotes:
+#                 dedup = dup_quote.replace('""', '"')
+#                 f_string = f_string.replace(dup_quote, dedup)
+            
+#             # if "dc" in message:
+
+#             # If dcterms tags are used, the record is a qualified DC record and
+#             # should include the DC terms namespace
+#             if "<dcterms:" in f_string:
+#                 dc_prefix_open_tag = dc_prefix_open_tag_qual
+#             # Otherwise, the record is a simple DC record and should only include
+#             # the namespace for the 15 core fields
+#             else:
+#                 dc_prefix_open_tag = dc_prefix_open_tag_simple
+            
+#             has_prefix_open_tag = re.findall('<[a-zA-Z]+ xmlns:dc.+">', f_string)
+#             # Be sure that if dcterms tags are used, the record uses the DC terms namespace
+#             if len(has_prefix_open_tag) > 0:
+#                 if ("<dcterms:" in f_string) and not ("<dcterms:" in has_prefix_open_tag[0]):
+#                     f_string = f_string.replace(has_prefix_open_tag[0], dc_prefix_open_tag)
+
+            
+#             else:
+#                 # Make sure the Dublin Core namespace is properly included
+#                 open_tag = re.findall('<[Dd]ublin.*[Cc]ore [\S]+>|<[Dd]ublin.*[Cc]ore>(?=[\s<])', f_string)
+#                 if (len(open_tag) == 1):
+#                     f_string = f_string.replace(open_tag[0], dc_prefix_open_tag)
+#                 else:
+#                     # If no namespaces are included, add them to the file
+#                     f_string = dc_prefix_open_tag + "\n" + f_string
+
+#                 # Be sure the file ends with the correct closing tag
+#                 if not dc_prefix_close_tag in f_string:
+#                     close_tag = re.findall("</[Dd]ublin.*[Cc]ore>", f_string)
+#                     if (len(close_tag) == 1):
+#                         f_string = f_string.replace(close_tag[0], dc_prefix_close_tag)
+#                     else:
+#                         has_prefix_close_tag = re.findall("<\/[a-zA-z]+>$", f_string)
+#                         if len(has_prefix_close_tag) > 0:
+#                             if has_prefix_close_tag[0] != dc_prefix_close_tag:
+#                                 f_string = f_string.replace(has_prefix_close_tag[0], dc_prefix_close_tag)
+#                         else:
+#                             f_string = f_string + dc_prefix_close_tag
+
+#             if "Namespace prefix rdf for about on Description is not defined" in message:
+#                 rdf_desc_open_tag = re.findall('<rdf:Description rdf:about=.+>', f_string)
+#                 f_string = f_string.replace(rdf_desc_open_tag[0], '<rdf:Description rdf:about="http://www.w3.org/TR/rdf-syntax-grammar">')
+
+                
+#             f.close()
+
+#             # To validate that the new data is well-formed, try parsing it as XML
+#             # and if successful, write the data as an XML file to a new directory,
+#             # and if unsuccessful, write the data as a TXT file to that same directory.
+#             try:
+#                 f_string = f_string.strip()  # Remove any leading and trailing whitespace
+#                 root = ET.fromstring(f_string)
+#                 xml_file = txt_file.replace(".txt", ".xml")
+#                 corrected_file = xml_file.replace("cleaned", "corrected")
+#                 with open(corrected_file, "w") as f:
+#                     f.write(f_string)
+#                     f.close()
+#             except Exception as e:
+#                 still_incorrect_file = txt_file.replace("cleaned", "corrected")
+#                 still_incorrect = {"file": still_incorrect_file, "exception_type": type(e), "exception_message": str(e)}
+#                 still_incorrect_list += [still_incorrect]
+#                 with open(still_incorrect_file, "w") as f:
+#                     f.write(f_string)
+#                     f.close()
+        
+#         i += 1
+
+#     return still_incorrect_list
     
 
 def correctJSON(txt_errored_files):
@@ -167,7 +345,9 @@ def correctJSON(txt_errored_files):
                 errored_json = errored_file.replace(".txt", ".json")
                 print("Please review file", errored_json, "manually and make sure that all open curly braces ({) are paired with a closing curly brace (}) and vice versa.")
                 still_incorrect += [errored_file]
-                
+
+            f.close()
+
             # To validate that the JSON data has been corrected, write a new file
             # with the corrected string in a 'corrected' directory and try to load
             # the file as JSON data
@@ -181,8 +361,42 @@ def correctJSON(txt_errored_files):
                     f_error = {"file": json_path, "exception_type": type(e), "exception_message": str(e)}
                     new_syntax_errors += [f_error]
                     still_incorrect += [errored_file]
+                f_json.close()
 
     return still_incorrect, comments_found, new_syntax_errors
 
 
+# def checkDC():
+#     i, maxI = 0, len(error_list)
+#     still_incorrect = []
+#     while i < maxI:
+#         txt_file, message = txt_errored_files[i], error_list[i]
         
+#         with open(txt_file, "r") as f:
+#             f_string = f.read()
+#             f_string = f_string.strip()  # Remove any leading and trailing whitespace
+
+#                 # Find the name of the outermost tags and replace them with tags that include the RDF and DC namespaces
+#                 last_close_tag = re.findall("<\/[a-z]+>$", f_string)
+#                 try:
+#                     last_close_tag = last_close_tag[0]
+#                     first_open_tag_pattern = "<" + last_close_tag[2:-1] + "[^<]*>"
+#                     try:
+#                         first_open_tag = re.findall(first_open_tag_pattern, f_string)[0]
+#                         f_string = f_string.replace(first_open_tag, dc_prefix_open_tag)
+#                         f_string = f_string.replace(last_close_tag, dc_prefix_close_tag)
+#                     except:
+#                         new_error = {"file": txt_file, "exception_type": "Malformed XML", "exception_message": "Mismatched outermost opening and closing tags."}
+#                         still_incorrect += [new_error]
+#                 except:
+#                     new_error = {"file": txt_file, "exception_type": "Malformed XML", "exception_message": "No closing tag found for outermost element."}
+#                     still_incorrect += [new_error]
+
+#             if "Namespace prefix rdf for about on Description" in message:
+#                 # If the RDF description tag is malformed, replace it with a well-formed one
+#                 rdf_desc_open_tag = re.findall('<rdf:Description rdf:about=.+>', f_string)
+#                 try:
+#                     f_string = f_string.replace(rdf_desc_open_tag[0], '<rdf:Description rdf:about="http://www.w3.org/TR/rdf-syntax-grammar">')
+#                 except:
+#                     new_error = {"file": txt_file, "exception_type": "Malformed XML", "exception_message": "No RDF description tag found."}
+#                     still_incorrect += [new_error]
