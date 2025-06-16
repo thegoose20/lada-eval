@@ -10,6 +10,13 @@ dc_prefix_open_tag_simple = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rd
 dc_prefix_close_tag = '</rdf:RDF>'
 
 
+
+############################################################
+################### CREATING CLEAN FILES ###################
+############################################################
+
+
+
 '''
 Write XML records to a directory as files in the format specified by `file_suffix`
 (the XML may be malformed, in which case corrections will need to be made by
@@ -92,6 +99,13 @@ def write_json(records_ids_list, records_list, dir, file_prefix, file_suffix):
             print("Wrote", filename+"!")
 
         i += 1
+
+
+
+############################################################
+################### EVALUATING METADATA ####################
+############################################################
+
 
 
 def hasDCNamespaces(f, dc_namespace=dc_namespace, dc_qual_namespace=dc_qual_namespace):
@@ -225,6 +239,14 @@ def correctXML(
         i += 1
 
     return still_incorrect
+
+
+
+
+############################################################
+################### CORRECTING METADATA ####################
+############################################################
+
 
 
 # dc_prefix_open_tag_qual = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">'
