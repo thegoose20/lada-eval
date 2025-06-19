@@ -146,6 +146,43 @@ def hasPrologWithEncoding(f, encoding="UTF-8"):
         return True
     else:
         return False
+    
+
+'''
+Input a compiled regex pattern, indicating where to look for emptiness in specified 
+files, and a list of file paths (as strings), indicating which files to check for 
+empty data fields.
+Output a list of only the files (as strings of a full file path) that contain at least 
+one empty field, a list of lists of the empty fields of each file (one sublist per file 
+for each file in the input list of file paths), and a list of the total number of empty 
+fields per file (one total for each file in the input list of file paths).
+'''
+def findEmptyFields(empty_pattern, file_paths):
+    files_with_empty, empty_fields_per_file, fields_per_file = [], [], []
+    for file_path in file_paths:
+        with open(file_path, "r") as f:
+            f_string = f.read().lower()
+            # Look for empty fields in the file
+            is_empty = re.finditer(empty_pattern, f_string)
+            # Save the empty fields, including the opening and closing tags and any text in between
+            empty_fields = [field[0] for field in is_empty]
+            fields_per_file += [empty_fields]
+            # # Save the file path to the XML version of the file
+            if len(empty_fields) > 0:
+                file_path.replace(".txt", ".xml")
+                files_with_empty += [file_path]
+            # Save the number of empty fields in the file
+            empty_fields_per_file += [len(empty_fields)]
+            f.close()
+    print(sum(empty_fields_per_file), "empty field(s) across", len(files_with_empty), "files found.")
+    return files_with_empty, empty_fields_per_file, fields_per_file
+
+
+
+############################################################
+################### CORRECTING METADATA ####################
+############################################################
+
 
 
 '''
@@ -239,14 +276,6 @@ def correctXML(
         i += 1
 
     return still_incorrect
-
-
-
-
-############################################################
-################### CORRECTING METADATA ####################
-############################################################
-
 
 
 # dc_prefix_open_tag_qual = '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/">'
