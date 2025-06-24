@@ -1,0 +1,12 @@
+name: ldeval
+channels:
+  - defaults
+dependencies:
+  - lxml
+  - numpy
+  - pandas
+  - python
+  - rdflib==7.1.4
+  - ipykernel
+  - conda-forge::pyld
+prefix: /Users/lucyhavens/miniconda3/envs/ldeval
