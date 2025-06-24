@@ -16,7 +16,8 @@ This repository contains Jupyter Notebooks that evaluate the syntax, completenes
 ## Setup and Usage
 
 ### Option 1
-The Jupyter Notebooks can be run in a web browser using [this Binder link]().  The advantage of using Binder is that you do not need to install any software to run the Notebooks.  Please note that when using Binder, any changes you make to the code will not be saved after you close the Binder webpage, but you can download data files that the code generates in Binder to save them to your own computer.  You can also upload your own data files to Binder to have the Jupyter Notebooks analyze those.
+
+The Jupyter Notebooks can be run in a web browser with [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/git/https%3A%2F%2Fgithub.com%2Fthegoose20%2Flada-eval/main).  The advantage of using Binder is that you do not need to install any software to run the Notebooks.  Please note that when using Binder, any changes you make to the code will not be saved after you close the Binder webpage, but you can download data files that the code generates in Binder to save them to your own computer.  You can also upload your own data files to Binder to have the Jupyter Notebooks analyze those.
 
 ### Option 2
 Alternatively, you can follow the steps below to clone the GitHub repository (repo), which creates a copy of all the code to your computer so you can run it from your computer rather than through Binder.  This way, you can save any changes you make to the code, and any data files and error reports you create will automatically be saved to your computer.
