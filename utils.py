@@ -1,6 +1,6 @@
 import os, re, json
 import xml.etree.ElementTree as ET
-
+import pandas as pd
 
 dc_namespace = 'xmlns:dc="http://purl.org/dc/elements/1.1/"'
 dc_qual_namespace = 'xmlns:dcterms="http://purl.org/dc/terms/"'
@@ -178,7 +178,6 @@ def findEmptyFields(empty_pattern, file_paths):
     return files_with_empty, empty_fields_per_file, fields_per_file
 
 
-
 def emptyErrorReportValues(df, col):
     if not col in df.columns:
         df = df.reset_index()
@@ -198,6 +197,36 @@ def emptyErrorReportValues(df, col):
     return df
 
 
+def contextInclusion(file_paths, data_model, context_pattern, context_url_pattern, context_var="@context"):
+    context_correct, has_context_var, has_model_url = [], [], []
+    for file_path in file_paths:
+        with open(file_path, "r") as f:
+            f_string = f.read().lower()
+
+            if re.search(context_pattern, f_string):
+                context_correct += [True]
+                has_context_var += [True]
+                has_context_vocab += [True]
+                ha_model_url += [True]
+            else:
+                context_correct += [False]
+                if context_var in f_string:
+                    has_context_var += [True]
+                else:
+                    has_context_var += [False]
+                if re.search(context_url_pattern, f_string):
+                    has_model_url += [True]
+                else:
+                    has_model_url += [False]
+
+            f.close()
+    df = pd.DataFrame.from_dict({
+        "file_path":file_paths, "data_model":[data_model]*len(file_paths), 
+        "includes_context_correctly":context_correct, "includes_@context":has_context_var, 
+        "includes_data_model_url":has_model_url
+        })
+
+    return df
 
 
 ############################################################
