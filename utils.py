@@ -1,4 +1,5 @@
 import os, re, json
+from pyld import jsonld
 import xml.etree.ElementTree as ET
 import pandas as pd
 
@@ -198,16 +199,22 @@ def emptyErrorReportValues(df, col):
 
 
 def contextInclusion(file_paths, data_model, context_pattern, context_url_pattern, context_var="@context"):
-    context_correct, has_context_var, has_model_url = [], [], []
+    error_raised, error_type, context_correct, has_context_var, has_model_url = [], [], [], [], []
     for file_path in file_paths:
         with open(file_path, "r") as f:
             f_string = f.read().lower()
 
+            try:
+                jsonld.expand(f_string)
+                error_raised += [False]
+            except Exception as e:
+                error_raised += [e]
+                error_type += [type(e)]
+
             if re.search(context_pattern, f_string):
                 context_correct += [True]
                 has_context_var += [True]
-                has_context_vocab += [True]
-                ha_model_url += [True]
+                has_model_url += [True]
             else:
                 context_correct += [False]
                 if context_var in f_string:
@@ -221,9 +228,8 @@ def contextInclusion(file_paths, data_model, context_pattern, context_url_patter
 
             f.close()
     df = pd.DataFrame.from_dict({
-        "file_path":file_paths, "data_model":[data_model]*len(file_paths), 
-        "includes_context_correctly":context_correct, "includes_@context":has_context_var, 
-        "includes_data_model_url":has_model_url
+        "file_path":file_paths, "data_model":[data_model]*len(file_paths), "error_type":error_type, "error_message":error_raised,
+        "includes_context_correctly":context_correct, "includes_@context":has_context_var, "includes_data_model_url":has_model_url
         })
 
     return df
