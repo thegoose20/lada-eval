@@ -2,4 +2,7 @@ __pycache__
 .DS_Store
 .ipynb_checkpoints
 data/*
+correction-dc-xml.ipynb
+correction-sdo-cidoc-json.ipynb
 scratch.ipynb
+wikidata-integration.ipynb
