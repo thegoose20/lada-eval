@@ -179,6 +179,27 @@ def findEmptyFields(empty_pattern, file_paths):
 
 
 
+def emptyErrorReportValues(df, col):
+    if not col in df.columns:
+        df = df.reset_index()
+    old_empty_values = list(df[col])
+    new_empty_values = []
+    for v in old_empty_values:
+        if v.isalpha():
+            new_empty_values += ["'"+v+"'"]
+        elif v == "":
+            new_empty_values += ["no value provided (e.g., <tag_name></tag_name)"]
+        elif v == "\n":
+            new_empty_values += ["newline (e.g., <tag_name>\n</tag_name>)"]
+        else:
+            new_empty_values += ["'"+str(v)+"'"]
+    df = df.drop(columns=[col])
+    df.insert(0, col, new_empty_values)
+    return df
+
+
+
+
 ############################################################
 ################### CORRECTING METADATA ####################
 ############################################################
